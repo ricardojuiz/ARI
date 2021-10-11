@@ -179,11 +179,11 @@ param ($TenantID, [switch]$SecurityCenter, $SubscriptionID, $appid, $secret, $Re
 
         function selectSubscription() {
             Write-Debug ('Checking number of Subscriptions')
-            $SubCount = $Subscriptions.count
+            $SubCount = [int]$Subscriptions.count
+            Write-Debug ('Number of Subscriptions Found: ' + $SubCount)
             if($SubCount -gt 1) {
                 write-host "You have only one Subscription "
             } else {
-                Write-Debug ('Number of Subscriptions Found: ' + $SubCount)
                 write-host "Tip: Use -SubscriptionID parameter if you want specify one unique Subscription to be inventoried. "
                 if ($SubscriptionID) {
                     if($SubscriptionID.count -gt 1){
