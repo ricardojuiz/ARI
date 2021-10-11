@@ -177,87 +177,94 @@ param ($TenantID, [switch]$SecurityCenter, $SubscriptionID, $appid, $secret, $Re
             }
         }
 
+        function selectSubscription() {
+            Write-Debug ('Checking number of Subscriptions')
+            $SubCount = $Subscriptions.count
+            if($SubCount -gt 1) {
+                write-host "You have only one Subscription "
+            } else {
+                Write-Debug ('Number of Subscriptions Found: ' + $SubCount)
+                write-host "Tip: Use -SubscriptionID parameter if you want specify one unique Subscription to be inventoried. "
+                if ($SubscriptionID) {
+                    if($SubscriptionID.count -gt 1){
+                        $Global:Subscriptions = $Subscriptions | Where-Object { $_.ID -in $SubscriptionID }
+                    } else {
+                        $Global:Subscriptions = $Subscriptions | Where-Object { $_.ID -eq $SubscriptionID }
+                    }
+                }
+            }
+        }
+
         function LoginSession() {
             Write-Debug ('Starting LoginSession function')
-            if (!$TenantID) {
-                write-host "Tenant ID not specified. Use -TenantID parameter if you want to specify directly. "
-                write-host "Authenticating Azure"
-                write-host ""
-                Write-Debug ('Cleaning az account cache')
-                az account clear | Out-Null
-                Write-Debug ('Calling az login')
-                az login --only-show-errors | Out-Null
-                write-host ""
-                write-host ""
-                $Tenants = az account list --query [].homeTenantId -o tsv --only-show-errors | Sort-Object -Unique
-                Write-Debug ('Checking number of Tenants')
-                if ($Tenants.Count -eq 1) {
-                    write-host "You have privileges only in One Tenant "
-                    write-host ""
-                    $TenantID = $Tenants
-                }
-                else {
-                    write-host "Select the the Azure Tenant ID that you want to connect : "
-                    write-host ""
-                    $SequenceID = 1
-                    foreach ($TenantID in $Tenants) {
-                        write-host "$SequenceID)  $TenantID"
-                        $SequenceID ++
-                    }
-                    write-host ""
-                    [int]$SelectTenant = read-host "Select Tenant ( default 1 )"
-                    $defaultTenant = --$SelectTenant
-                    $TenantID = $Tenants[$defaultTenant]
-                    az login -t $TenantID | Out-Null
-                }
-
+            if($Global:PlatOS -eq 'Azure CloudShell') {
                 write-host "Extracting from Tenant $TenantID"
                 Write-Debug ('Extracting Subscription details')
                 $Global:Subscriptions = az account list --output json --only-show-errors | ConvertFrom-Json
-                $Global:Subscriptions = $Subscriptions | Where-Object { $_.tenantID -eq $TenantID }
-                if ($SubscriptionID)
-                    {
-                        if($SubscriptionID.count -gt 1)
-                            {
-                                $Global:Subscriptions = $Subscriptions | Where-Object { $_.ID -in $SubscriptionID }
-                            }
-                        else
-                            {
-                                $Global:Subscriptions = $Subscriptions | Where-Object { $_.ID -eq $SubscriptionID }
-                            }
-                    }
-            }
-            else {
-                az account clear | Out-Null
-                if (!$appid) {
-                    az login -t $TenantID | Out-Null
-                    }
-                elseif ($appid -and $secret -and $tenantid) {
-                    write-host "Using Service Principal Authentication Method"
-                    az login --service-principal -u $appid -p $secret -t $TenantID | Out-Null
-                }
-                else{
-                    write-host "You are trying to use Service Principal Authentication Method in a wrong way."
-                    write-host "It's Mandatory to specify Application ID, Secret and Tenant ID in Azure Resource Inventory"
+
+            } else {
+                if (!$TenantID) {
+                    write-host "Tenant ID not specified. Use -TenantID parameter if you want to specify directly. "
+                    write-host "Authenticating Azure"
                     write-host ""
-                    write-host ".\AzureResourceInventory.ps1 -appid <SP AppID> -secret <SP Secret> -tenant <TenantID>"
-                    Exit
-                }
-                $Global:Subscriptions = az account list --output json --only-show-errors | ConvertFrom-Json
-                $Global:Subscriptions = $Subscriptions | Where-Object { $_.tenantID -eq $TenantID }
-                if ($SubscriptionID)
-                    {
-                        if($SubscriptionID.count -gt 1)
-                            {
-                                $Global:Subscriptions = $Subscriptions | Where-Object { $_.ID -in $SubscriptionID }
-                            }
-                        else
-                            {
-                                $Global:Subscriptions = $Subscriptions | Where-Object { $_.ID -eq $SubscriptionID }
-                            }
+                    Write-Debug ('Cleaning az account cache')
+                    az account clear | Out-Null
+                    Write-Debug ('Calling az login')
+                    az login --only-show-errors | Out-Null
+                    write-host ""
+                    write-host ""
+                    $Tenants = az account list --query [].homeTenantId -o tsv --only-show-errors | Sort-Object -Unique
+                    Write-Debug ('Checking number of Tenants')
+                    if ($Tenants.Count -eq 1) {
+                        write-host "You have privileges only in One Tenant "
+                        write-host ""
+                        $TenantID = $Tenants
                     }
+                    else {
+                        write-host "Select the the Azure Tenant ID that you want to connect : "
+                        write-host ""
+                        $SequenceID = 1
+                        foreach ($TenantID in $Tenants) {
+                            write-host "$SequenceID)  $TenantID"
+                            $SequenceID ++
+                        }
+                        write-host ""
+                        [int]$SelectTenant = read-host "Select Tenant ( default 1 )"
+                        $defaultTenant = --$SelectTenant
+                        $TenantID = $Tenants[$defaultTenant]
+                        az login -t $TenantID | Out-Null
+                    }
+
+                    write-host "Extracting from Tenant $TenantID"
+                    Write-Debug ('Extracting Subscription details')
+                    $Global:Subscriptions = az account list --output json --only-show-errors | ConvertFrom-Json
+                    $Global:Subscriptions = $Subscriptions | Where-Object { $_.tenantID -eq $TenantID }
+                }
+                else {
+                    az account clear | Out-Null
+                    if (!$appid) {
+                        az login -t $TenantID | Out-Null
+                        }
+                    elseif ($appid -and $secret -and $tenantid) {
+                        write-host "Using Service Principal Authentication Method"
+                        az login --service-principal -u $appid -p $secret -t $TenantID | Out-Null
+                    }
+                    else{
+                        write-host "You are trying to use Service Principal Authentication Method in a wrong way."
+                        write-host "It's Mandatory to specify Application ID, Secret and Tenant ID in Azure Resource Inventory"
+                        write-host ""
+                        write-host ".\AzureResourceInventory.ps1 -appid <SP AppID> -secret <SP Secret> -tenant <TenantID>"
+                        Exit
+                    }
+                    $Global:Subscriptions = az account list --output json --only-show-errors | ConvertFrom-Json
+                    $Global:Subscriptions = $Subscriptions | Where-Object { $_.tenantID -eq $TenantID }
+                }
             }
+
+            selectSubscription
         }
+
+        
 
         function checkPS() {
             Write-Debug ('Starting checkPS function')
@@ -265,23 +272,21 @@ param ($TenantID, [switch]$SecurityCenter, $SubscriptionID, $appid, $secret, $Re
             if ($CShell) {
                 write-host 'Azure CloudShell Identified.'
                 $Global:PlatOS = 'Azure CloudShell'
-                write-host ""
-                $Global:DefaultPath = "$HOME/AzureResourceInventory/"
-                $Global:Subscriptions = az account list --output json --only-show-errors | ConvertFrom-Json
+                write-host ""        
+                $Global:DefaultPath = "$HOME/AzureResourceInventory/"        
             } elseif ($PSVersionTable.Platform -eq 'Unix') {
                 write-host "PowerShell Unix Identified."
                 $Global:PlatOS = 'PowerShell Unix'
                 write-host ""
                 $Global:DefaultPath = "$HOME/AzureResourceInventory/"
-                LoginSession
             }
             else {
                 write-host "PowerShell Desktop Identified."
                 $Global:PlatOS = 'PowerShell Desktop'
                 write-host ""
                 $Global:DefaultPath = "C:\AzureResourceInventory\"
-                LoginSession
             }
+            LoginSession            
         }
 
         <###################################################### Checking PowerShell ######################################################################>
